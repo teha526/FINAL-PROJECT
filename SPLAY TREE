@@ -1,0 +1,242 @@
+SPLAY TREE CODING
+
+import java.util.*;
+
+public class MaritimeReliefRouteOptimization {
+    // Distance Matrix (Adjacency Matrix)
+    static int[][] distanceMatrix = {
+        {0, 15, 25, 35},
+        {15, 0, 30, 28},
+        {25, 30, 0, 20},
+        {35, 28, 20, 0}
+    };
+    
+    // Location names
+    static String[] locations = {"Port A", "Port B", "Relief Center C", "Relief Center D"};
+    
+    public static void main(String[] args) {
+        System.out.println(divideAndConquerTSP(distanceMatrix));
+        
+        // Heap Test 
+        Heap<Integer> minHeap = new Heap<>(true);  // Min-Heap for urgent deliveries
+        minHeap.insert(10);  // Low urgency
+        minHeap.insert(3);   // High urgency (process first)
+        minHeap.insert(15);  // Medium urgency
+        System.out.println("Min-Heap Extract Min: " + minHeap.extractMin());  // Outputs 3
+        
+        // Splay Tree Test 
+        SplayTree tree = new SplayTree();
+        tree.insert(20);
+        tree.insert(10);
+        tree.insert(30);
+        System.out.println("Splay Tree Search (10 found): " + tree.search(10));
+    }
+
+    // Divide and Conquer TSP
+    public static String divideAndConquerTSP(int[][] dist) {
+        int n = dist.length;
+        boolean[] visited = new boolean[n];
+        visited[0] = true;  // Start from Port A (index 0)
+        StringBuilder currentPath = new StringBuilder(locations[0]);
+        StringBuilder bestPath = new StringBuilder();
+        int[] minCost = {Integer.MAX_VALUE};
+        
+        divideAndConquerHelper(0, visited, 0, dist, n, currentPath, bestPath, minCost);
+        
+        return "Divide & Conquer TSP Route: " + bestPath.toString() + " | Total Distance: " + minCost[0] + " nm";
+    }
+    
+    private static void divideAndConquerHelper(int pos, boolean[] visited, int currentCost, int[][] dist, int n, StringBuilder currentPath, StringBuilder bestPath, int[] minCost) {
+        if (allVisited(visited)) {
+            int returnCost = currentCost + dist[pos][0];  // Add cost to return to start
+            if (returnCost < minCost[0]) {
+                minCost[0] = returnCost;
+                bestPath.setLength(0);
+                bestPath.append(currentPath).append(" -> ").append(locations[0]);
+            }
+            return;
+        }
+        
+        for (int i = 0; i < n; i++) {
+            if (!visited[i]) {
+                visited[i] = true;
+                int prevLength = currentPath.length();
+                currentPath.append(" -> ").append(locations[i]);
+                divideAndConquerHelper(i, visited, currentCost + dist[pos][i], dist, n, currentPath, bestPath, minCost);
+                currentPath.setLength(prevLength);  // Backtrack
+                visited[i] = false;
+            }
+        }
+        
+    }
+    
+    private static boolean allVisited(boolean[] visited) {
+        for (boolean v : visited) {
+            if (!v) return false;
+        }
+        return true;
+    }
+    
+    // Heap (Min-Heap & Max-Heap)
+    static class Heap<T extends Comparable<T>> {
+        private List<T> heap;
+        private Comparator<T> comparator;  // For Min-Heap or Max-Heap
+        
+        public Heap(boolean isMinHeap) {
+            heap = new ArrayList<>();
+            comparator = isMinHeap ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        }
+        
+        public void insert(T value) {
+            heap.add(value);
+            heapifyUp(heap.size() - 1);
+        }
+        
+        public T extractMin() {  // For Min-Heap; for Max-Heap, rename to extractMax
+            if (heap.isEmpty()) throw new IllegalStateException("Heap is empty");
+            T root = heap.get(0);
+            T last = heap.remove(heap.size() - 1);
+            if (!heap.isEmpty()) {
+                heap.set(0, last);
+                heapifyDown(0);
+            }
+            return root;
+        }
+        
+        public T peek() {
+            if (heap.isEmpty()) throw new IllegalStateException("Heap is empty");
+            return heap.get(0);
+        }
+        
+        private void heapifyUp(int index) {
+            while (index > 0) {
+                int parent = (index - 1) / 2;
+                if (comparator.compare(heap.get(index), heap.get(parent)) >= 0) break;
+                swap(index, parent);
+                index = parent;
+            }
+        }
+        
+        private void heapifyDown(int index) {
+            int size = heap.size();
+            while (true) {
+                int left = 2 * index + 1;
+                int right = 2 * index + 2;
+                int smallest = index;
+                if (left < size && comparator.compare(heap.get(left), heap.get(smallest)) < 0) smallest = left;
+                if (right < size && comparator.compare(heap.get(right), heap.get(smallest)) < 0) smallest = right;
+                if (smallest == index) break;
+                swap(index, smallest);
+                index = smallest;
+            }
+        }
+        
+        private void swap(int i, int j) {
+            T temp = heap.get(i);
+            heap.set(i, heap.get(j));
+            heap.set(j, temp);
+        }
+    }
+    
+    // Splay Tree
+    static class SplayTree {
+        static class Node {
+            int key;
+            Node left, right, parent;
+            
+            Node(int key) {
+                this.key = key;
+            }
+        }
+        
+        private Node root;
+        
+        public void insert(int key) {
+            if (root == null) {
+                root = new Node(key);
+                return;
+            }
+            Node node = root;
+            Node parent = null;
+            while (node != null) {
+                parent = node;
+                if (key < node.key) node = node.left;
+                else if (key > node.key) node = node.right;
+                else return;  // Key already exists
+            }
+            Node newNode = new Node(key);
+            newNode.parent = parent;
+            if (key < parent.key) parent.left = newNode;
+            else parent.right = newNode;
+            splay(newNode);
+        }
+        
+        public boolean search(int key) {
+            Node node = searchNode(key);
+            if (node != null) {
+                splay(node);
+                return true;
+            }
+            return false;
+        }
+        
+        private Node searchNode(int key) {
+            Node node = root;
+            while (node != null) {
+                if (key < node.key) node = node.left;
+                else if (key > node.key) node = node.right;
+                else return node;
+            }
+            return null;
+        }
+        
+        private void splay(Node node) {
+            while (node.parent != null) {
+                if (node.parent.parent == null) {
+                    // Zig or Zag
+                    if (node == node.parent.left) rotateRight(node.parent);
+                    else rotateLeft(node.parent);
+                } else if (node == node.parent.left && node.parent == node.parent.parent.left) {
+                    // Zig-Zig
+                    rotateRight(node.parent.parent);
+                    rotateRight(node.parent);
+                } else if (node == node.parent.right && node.parent == node.parent.parent.right) {
+                    // Zag-Zag
+                    rotateLeft(node.parent.parent);
+                    rotateLeft(node.parent);
+                } else {
+                    // Zig-Zag or Zag-Zig
+                    if (node == node.parent.left) rotateRight(node.parent);
+                    else rotateLeft(node.parent);
+                    if (node.parent.left == node) rotateRight(node.parent);
+                    else rotateLeft(node.parent);
+                }
+            }
+            root = node;
+        }
+        
+        private void rotateLeft(Node node) {
+            Node right = node.right;
+            node.right = right.left;
+            if (right.left != null) right.left.parent = node;
+            right.parent = node.parent;
+            if (node.parent == null) root = right;
+            else if (node == node.parent.left) node.parent.left = right;
+            else node.parent.right = right;
+            right.left = node;
+            node.parent = right;
+        }
+        
+        private void rotateRight(Node node) {
+            Node left = node.left;
+            node.left = left.right;
+            if (left.right != null) left.right.parent = node;
+            left.parent = node.parent;
+            if (node.parent == null) root = left;
+            else if (node == node.parent.right) node.parent.right = left;
+            else node.parent.left = left;
+            left.right = node;
+            node.parent = left;
+        }
+    }
+}
